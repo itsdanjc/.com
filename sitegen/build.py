@@ -1,11 +1,10 @@
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from marko import Markdown
 from marko.block import Document, Heading
 from jinja2 import Environment, Template
+from .templates import DEFAULT_PAGE_TEMPLATE, BLANK_PAGE_DEFAULT
 
-BLANK_PAGE_DEFAULT = "# {heading}\n{body}"
-DEFAULT_PAGE_TEMPLATE = "<h1>{{page.get_title()|safe}}</h1>{{page.to_html()|safe}}"
 ENABLED_MARKO_EXTENSIONS = frozenset(
     {'footnote', 'toc', 'codehilite', 'gfm'}
 )
@@ -43,6 +42,11 @@ class Page(Markdown):
         if len(self.body.children) == 0:
             self.body = self.parse(self.default_when_empty)
 
+        self.last_modified = datetime.fromtimestamp(
+            self.document_path.stat().st_mtime,
+            tz=timezone.utc,
+        )
+
         first_child = self.body.children[0]
         if isinstance(first_child, Heading):
             self.title = first_child
@@ -50,10 +54,9 @@ class Page(Markdown):
 
     def write(self, to: Path, jinja_env: Environment) -> None:
         template = jinja_env.get_or_select_template(
-            ["page.html", Template(DEFAULT_PAGE_TEMPLATE)]
+            ["page.html", DEFAULT_PAGE_TEMPLATE]
         )
 
-        to = to.joinpath(self.document_path.stem + ".html")
         to.parent.mkdir(parents=True, exist_ok=True)
         with to.open("w", encoding="utf-8") as f:
             f.write(template.render(page=self))
