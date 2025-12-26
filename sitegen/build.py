@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from datetime import datetime, timezone
@@ -7,6 +8,7 @@ from jinja2 import Environment, FileSystemLoader
 from typing import Iterable, Final, Any
 from .templates import DEFAULT_PAGE_TEMPLATE, BLANK_PAGE_DEFAULT
 
+logger = logging.getLogger(__name__)
 DEFAULT_EXTENSIONS: Final[frozenset[str]] = frozenset(
     {'footnote', 'toc', 'codehilite', 'gfm'}
 )
@@ -73,9 +75,11 @@ class Page(Markdown):
         """
         with self.document_path.open("r", errors='replace') as f:
             doc_body: str = f.read()
+            self.metadata = dict()
             self.body = self.parse(doc_body)
 
         if len(self.body.children) == 0:
+            logger.debug("%s has empty body, falling back to default.", self.document_path.name)
             default_body: str = BLANK_PAGE_DEFAULT.format(
                 heading=self.document_path.stem.title(),
                 body=default,
@@ -112,6 +116,11 @@ class Page(Markdown):
         with dest.open("w", encoding="utf-8") as f:
             render_result: str = template.render(page=self, **jinja_context)
             f.write(render_result)
+            logger.debug(
+                "Successfully built %s -> %s.",
+                self.document_path,
+                dest
+            )
 
 
     #Methods dest be used in jinja templates
@@ -167,6 +176,21 @@ def build(
     if not extensions:
         extensions = DEFAULT_EXTENSIONS
 
+    logger.info("Building page %s.", build_context.source_path.name)
     page = Page(build_context.source_path, jinja_env, extensions)
-    page.read_parse()
-    page.render_write(build_context.dest_path, **jinja_context)
+
+    try:
+        page.read_parse()
+    except FileNotFoundError as ex:
+        logger.error("Unable to open %s for reading.", build_context.source_path)
+        return
+
+    if page.metadata.get("is_draft", False):
+        logger.info("Page %s is draft. Skipping...", build_context.source_path)
+        return
+
+    try:
+        page.render_write(build_context.dest_path, **jinja_context)
+    except OSError as ex:
+        logger.error("Failed to write dest %s", build_context.dest_path)
+        logger.debug(ex)
