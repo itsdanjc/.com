@@ -1,5 +1,4 @@
 import logging
-from dataclasses import dataclass
 from pathlib import Path
 from datetime import datetime, timezone
 from marko import Markdown, MarkoExtension
@@ -7,11 +6,13 @@ from marko.block import Document, Heading
 from jinja2 import Environment, FileSystemLoader
 from typing import Iterable, Final, Any
 from .templates import DEFAULT_PAGE_TEMPLATE, BLANK_PAGE_DEFAULT
+from .context import BuildContext
 
 logger = logging.getLogger(__name__)
 DEFAULT_EXTENSIONS: Final[frozenset[str]] = frozenset(
     {'footnote', 'toc', 'codehilite', 'gfm'}
 )
+
 
 class Page(Markdown):
     """
@@ -122,35 +123,12 @@ class Page(Markdown):
                 dest
             )
 
-
     #Methods dest be used in jinja templates
     def to_html(self):
         return self.render(self.body)
 
     def get_title(self):
         return self.renderer.render_children(self.title)
-
-@dataclass
-class BuildContext:
-    """
-    Initialize a build context from relative paths.
-
-    :ivar curr_working_dir: Current working directory used as the base for all paths.
-    :ivar source_path: Path to the source content directory relative to webroot.
-    :ivar dest_path: Path to the output destination directory relative to webroot.
-    :ivar template_path: Path to the template directory relative to webroot.
-    """
-    curr_working_dir: Final[Path]
-    source_path: Final[Path]
-    dest_path: Final[Path]
-    template_path = Final[Path]
-
-    def __init__(self, cwd: Path, source: Path, dest: Path):
-        self.curr_working_dir = cwd
-        self.source_path = cwd.joinpath("_public", source)
-        self.dest_path = cwd.joinpath(dest)
-        self.template_path = cwd.joinpath("_fragments")
-
 
 def build(
         build_context: BuildContext,

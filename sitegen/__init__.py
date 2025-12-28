@@ -5,9 +5,10 @@ __all__ = [
     "SiteRoot",
     "BuildContext",
     "build",
-    "configure_logging"
+    # "configure_logging"
 ]
 
-from .build import Page, BuildContext, build
+from .build import Page, build
+from .context import BuildContext
 from .site import SiteRoot
-from .log import configure_logging
+# from .log import configure_logging

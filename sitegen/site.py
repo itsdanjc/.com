@@ -1,7 +1,7 @@
 import logging, os
 from pathlib import Path
 from typing import Final, List
-from . import BuildContext
+from .context import BuildContext
 
 logger = logging.getLogger(__name__)
 

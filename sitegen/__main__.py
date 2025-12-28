@@ -34,13 +34,7 @@ def build(force: bool, directory: str):
     logger.info("Found a total of %d pages.", total_found)
 
     for context in site.tree:
-        source_lastmod: float = context.source_path.stat().st_mtime
-        dest_lastmod: float = 0
-        if context.dest_path.exists():
-            dest_lastmod: float = context.dest_path.stat().st_mtime
-
-        is_source_modified: bool = (source_lastmod < dest_lastmod)
-        if is_source_modified and not force:
+        if not (context.is_modified or force):
             logger.debug(
                 "%s has not been modified since last build. Use --force to overwrite anyway.",
                 context.source_path.name)
@@ -49,16 +43,16 @@ def build(force: bool, directory: str):
 
         build_page(context)
 
-        if dest_lastmod == 0:
+        if context.dest_path_lastmod == 0:
             total_new += 1
         else:
             total_modified += 1
 
     logger.info(
-        "\nSuccessfully built %d pages:" +
-            "\n- %d new page(s)" +
-            "\n- %d with change(s)" +
-            "\n- %d unchanged",
+        "\nSuccessfully built %d pages:"
+        "\n- %d new page(s)"
+        "\n- %d with change(s)"
+        "\n- %d unchanged",
         total_found,
         total_new,
         total_modified,
