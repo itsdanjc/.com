@@ -86,7 +86,7 @@ class Page(Markdown):
         try:
             with self.document_path.open("r", errors='replace') as f:
                 doc_body: str = f.read()
-                self.metadata = dict()
+                self.metadata = dict()  #TODO: Parse yml at start of file.
                 self.body = self.parse(doc_body)
         except FileNotFoundError as e:
             raise MarkdownParseException(
@@ -157,12 +157,13 @@ class Page(Markdown):
             template.name
         )
 
-
     #Methods dest be used in jinja templates
     def to_html(self):
         return self.render(self.body)
 
     def get_title(self):
+        if not hasattr(self, "title"):
+            return "Untitled"
         return self.renderer.render_children(self.title)
 
 
