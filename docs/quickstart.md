@@ -15,9 +15,9 @@ The first step is to clone the `composeit` repository to your local machine:
 You can clone and install **anywhere on your system**. You should use only one installation to manage any 
 number of sites you wish to host.
 
-!!! warning
-    Avoid installing composeit directly into a directory you plan to use as your webroot. Doing so may 
-    prevent the site from building correctly.
+>   [!IMPORTANT]
+>   Avoid installing composeit directly into a directory you plan to use as your webroot. Doing so may 
+>   prevent the site from building correctly.
 
 ```bash
 $ git clone https://github.com/itsdanjc/composeit.git
@@ -65,25 +65,25 @@ Build for the first time:
 $ /path/to/.venv/python -m composeit build
 ```
 
-???+ note
-    Currently, `composeit` must be run from the virtual environment created during installation.
-    This is temporary and will be fixed in a future release. As a fix, you could
-    create a bash script to handle this automatically:
-
-    ```bash title="composeit.sh"
-    #!/bin/bash
-    # Temporary wrapper to run composeit from its virtual environment
-
-    # Adjust this path to the virtual environment
-    VENV_PATH="/path/to/.venv"
-
-    # Execute composeit using the virtual environment's Python
-    "$VENV_PATH/bin/python" -m composeit "$@"
-    ```
-
-    ```
-    $ composeit --version
-    ```
+>   [!NOTE]
+>   Currently, `composeit` must be run from the virtual environment created during installation.
+>   This is temporary and will be fixed in a future release. As a fix, you could
+>   create a bash script to handle this automatically:
+>
+>   ```bash
+>   #!/bin/bash
+>   # Temporary wrapper to run composeit from its virtual environment
+>
+>   # Adjust this path to the virtual environment
+>   VENV_PATH="/path/to/.venv"
+>
+>   # Execute composeit using the virtual environment's Python
+>   "$VENV_PATH/bin/python" -m composeit "$@"
+>   ```
+>
+>   ```bash
+>   $ composeit --version
+>   ```
 
 You should see `index.html` in your webroot.
 
