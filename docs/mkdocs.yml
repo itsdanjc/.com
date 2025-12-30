@@ -1,0 +1,26 @@
+site_name: composeit
+site_url: https://itsdanjc.github.io/composeit/
+repo_url: https://github.com/itsdanjc/composeit
+repo_name: composeit
+theme:
+  name: material
+  features:
+    - search.highlight
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.instant.progress
+    - navigation.footer
+    - toc.integrate
+copyright: '&copy; 2026 itsdanjc - Licensed under GNU GPL v3'
+plugins:
+  - search
+markdown_extensions:
+  - admonition
+  - tables
+  - toc
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/itsdanjc
+    - icon: fontawesome/solid/house
+      link: https://itsdanjc.com
