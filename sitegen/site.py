@@ -1,6 +1,6 @@
 import logging, os
 from pathlib import Path
-from typing import Final, List
+from typing import Final, Generator, Set
 from .context import BuildContext, FileType
 
 logger = logging.getLogger(__name__)
@@ -11,7 +11,10 @@ class SiteRoot:
     This class represents the root of the site.
     """
     root_path: Final[Path]
-    tree: List[BuildContext]
+    tree: Set[BuildContext]
+    valid_ext: Final[frozenset[str]] = frozenset(
+        FileType.HTML.value | FileType.MARKDOWN.value
+    )
 
     def __init__(self, path: Path):
         """
@@ -19,26 +22,22 @@ class SiteRoot:
         :param path: Path to the root of the site.
         """
         self.root_path = path
-        self.tree = []
 
-    def make_tree(self) -> None:
+    def tree_iter(self, follow_links: bool = False) -> Generator[BuildContext, None, int]:
         md_dir = self.root_path.joinpath("_public")
-        for dir_in, _, files in os.walk(md_dir):
-            sub_dir = Path(dir_in)
-            for file in files:
-                file_path = sub_dir.joinpath(file)
-                file_path = file_path.relative_to(md_dir)
-                dest = file_path.parent.joinpath(
-                    file_path.stem + ".html",
-                )
-                context = BuildContext(
-                    cwd=self.root_path,
-                    source=file_path,
-                    dest=dest
-                )
 
-                if not context.type in {FileType.HTML, FileType.MARKDOWN}:
-                    continue
+        for file in md_dir.glob("**", recurse_symlinks=follow_links):
+            if not (file.is_file() and file.suffix.lower() in self.valid_ext):
+                continue
 
-                logger.debug("Found %s", file_path)
-                self.tree.append(context)
+            file_path = file.relative_to(md_dir)
+            dest = file_path.parent.joinpath(
+                file_path.stem + ".html",
+            )
+
+            yield BuildContext(
+                cwd=self.root_path,
+                source=file_path,
+                dest=dest
+            )
+

@@ -1,22 +1,25 @@
 import os
 import argparse
 import logging
-import time
+import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Final
 from jinja2 import TemplateError
 from .log import configure_logging
 from .site import SiteRoot
 from .build import build as build_page
 from .cli import  BuildStats
-from . import __version__
+from . import __version__, __author__, BuildReason
+
+CLI_HEADER_MSG: Final[str] = f"sitegen {__version__}, by {__author__}"
+CLI_DESC: Final[str] = "Epilogue"
 
 logger = logging.getLogger(__name__)
 cwd = Path(os.getcwd())
 
 def main(argv: Optional[list[str]] = None) -> None:
-    parser = argparse.ArgumentParser(prog="cli")
-    commands = parser.add_subparsers(dest="command", required=True)
+    parser = argparse.ArgumentParser(prog="cli", description=CLI_DESC)
+    commands = parser.add_subparsers(title="commands", dest="commands", required=True)
 
     # Global Arguments
     parser.add_argument("-v", "--verbose", action="store_true", help="Show more info in logs")
@@ -35,49 +38,44 @@ def main(argv: Optional[list[str]] = None) -> None:
         help="Use the specified directory, instead of the current directory")
 
     args = parser.parse_args(argv)
+    print(CLI_HEADER_MSG, end="\n\n")
     configure_logging(args.verbose)
-    match args.command:
-        case "build":
-            build(
-                force=args.force,
-                directory=args.working_dir,
-                perform_clean=args.clean,
-                dry_run=args.dry_run,
-            )
-        case _:
-            parser.print_help()
+    try:
+        match args.commands:
+            case "build":
+                build(args.force, args.working_dir, args.clean, args.dry_run)
+            case _:
+                parser.print_help()
+    except KeyboardInterrupt:
+        sys.exit(0)
 
 
 
 def build(force: bool, directory: Path, perform_clean: bool, dry_run: bool) -> None:
-    logger.info("Building site at %s.", directory)
-    s_time = time.perf_counter()
+    logger.info("Building site at %s", directory)
     site = SiteRoot(directory)
-    build_stats = BuildStats()
-    site.make_tree()
-    i, m = 0, len(site.tree)
-    logger.info("Building %d pages...", len(site.tree))
 
-    for context in site.tree:
-        i += 1
-        if not (context.is_modified or force):
-            logger.debug("%s not modified.",context.source_path.name)
-            continue
+    with BuildStats() as build_stats:
+        for context in site.tree_iter():
+            name = context.source_path.name
 
-        try:
-            logger.info("[%d/%d] %s.",i, m, context.source_path.name)
-            build_page(context)
+            if not (context.is_modified or force):
+                logger.debug("Found unmodified %s", name)
+                continue
 
-        except (OSError, TemplateError) as e:
-            build_stats.errors += 1
-            logger.error("%s: %s",context.source_path.name, "".join(e.args))
+            logger.info("Building page %s", name)
 
-        build_stats.add_stat(context.build_reason)
+            try:
+                build_page(context)
+            except (OSError, TemplateError):
+                build_stats.errors += 1
+                logger.exception("Failed to build %s", name)
+                continue
 
-    e_time = time.perf_counter()
-    build_stats.time_seconds = e_time - s_time
+            logger.info("Build OK")
+            build_stats.add_stat(context.build_reason)
 
-    logger.info(build_stats.summary(m))
+    logger.info(build_stats.summary())
 
 if __name__ == "__main__":
     main()

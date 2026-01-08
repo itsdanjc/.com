@@ -1,15 +1,32 @@
+import time
+from typing import Self
 from .context import BuildReason
 
 class BuildStats:
+    """
+    Class for storing build statistics.
+    """
     created: int = 0
     changed: int = 0
     unchanged: int = 0
     deleted: int = 0
     errors: int = 0
     draft: int = 0
-    time_seconds: float = 0.0
+    start_time: float
+    end_time: float
+    total_time_s: float
 
-    def summary(self, total_pages: int) -> str:
+    def __enter__(self) -> Self:
+        self.start_time = time.perf_counter()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.end_time = time.perf_counter()
+        self.total_time_s = self.end_time - self.start_time
+
+
+    def summary(self) -> str:
+        total_pages = self.created + self.changed + self.unchanged
         if total_pages == 0:
             return "Nothing to do."
 
@@ -20,7 +37,7 @@ class BuildStats:
         )
         lines = [
             status,
-            f"Processed {total_pages} pages in {self.time_seconds:.2f}s.",
+            f"Processed {total_pages} pages in {self.total_time_s:.2f}s.",
         ]
         stats = [
             ("Created", self.created),

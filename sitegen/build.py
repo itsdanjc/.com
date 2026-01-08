@@ -228,8 +228,3 @@ def build(
         return
 
     page.render(**jinja_context)
-    logger.debug(
-        "Successfully built %s using template %s.",
-        build_context.source_path.name,
-        page.template.name
-    )
