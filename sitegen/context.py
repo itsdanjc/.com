@@ -5,10 +5,6 @@ from pathlib import Path
 from typing import Final, Optional, Any, Mapping, Self
 from markupsafe import Markup
 
-SOURCE_DIR: Final[Path] = Path("source")
-DEST_DIR: Final[Path] = Path("build")
-TEMPLATE_DIR: Final[Path] = Path("templates")
-
 
 class BuildReason(IntEnum):
     CREATED = 0
@@ -66,14 +62,12 @@ class BuildContext:
     """
     Initialize a build context from relative paths.
 
-    :ivar curr_working_dir: Current working directory used as the base for all paths.
     :ivar source_path: Path to the source content directory relative to webroot.
     :ivar source_path_lastmod: The last modified date of the source file.
     :ivar dest_path: Path to the output destination directory relative to webroot.
     :ivar dest_path_lastmod: The last modified date of the destination file if exists.
     :ivar template_path: Path to the template directory relative to webroot.
     """
-    curr_working_dir: Final[Path]
     source_path: Final[Path]
     source_path_lastmod: Final[datetime]
     dest_path: Final[Path]
@@ -81,11 +75,10 @@ class BuildContext:
     template_path: Final[Path]
     type: Final[FileType]
 
-    def __init__(self, cwd: Path, source: Path, dest: Path):
-        self.curr_working_dir = cwd
-        self.source_path = cwd.joinpath(SOURCE_DIR, source)
-        self.dest_path = cwd.joinpath(DEST_DIR, dest)
-        self.template_path = cwd.joinpath(TEMPLATE_DIR)
+    def __init__(self, site: "SiteRoot", source: Path, dest: Path): #type: ignore
+        self.source_path = site.source_dir.joinpath(source)
+        self.dest_path = site.dest_dir.joinpath(dest)
+        self.template_path = site.template_dir
         self.type = FileType.from_suffix(self.source_path.suffix)
 
         self.source_path_lastmod = datetime.fromtimestamp(

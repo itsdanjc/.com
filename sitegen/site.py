@@ -1,9 +1,13 @@
 import logging
 from pathlib import Path
-from typing import Final, Generator, Set
-from .context import BuildContext, FileType, SOURCE_DIR
+from typing import Final, Generator, Set, List
+from .context import BuildContext, FileType
 
 logger = logging.getLogger(__name__)
+
+SOURCE_DIR: Final[Path] = Path("source")
+DEST_DIR: Final[Path] = Path("build")
+TEMPLATE_DIR: Final[Path] = Path("templates")
 
 
 class SiteRoot:
@@ -13,12 +17,15 @@ class SiteRoot:
     root_path: Final[Path]
     tree: Set[BuildContext]
     valid_ext: Final[frozenset[str]] = FileType.all()
+    source_dir: Final[Path]
+    dest_dir: Final[Path]
+    template_dir: Final[Path]
 
     def __init__(self, path: Path):
-        """
-        :param path: Path to the root of the site.
-        """
         self.root_path = path
+        self.source_dir = path.joinpath(SOURCE_DIR)
+        self.dest_dir = path.joinpath(DEST_DIR)
+        self.template_dir = path.joinpath(TEMPLATE_DIR)
 
     def tree_iter(self, follow_links: bool = False) -> Generator[BuildContext, None, None]:
         md_dir = self.root_path.joinpath(SOURCE_DIR)
@@ -33,8 +40,18 @@ class SiteRoot:
             )
 
             yield BuildContext(
-                cwd=self.root_path,
+                site=self,
                 source=file_path,
                 dest=dest
             )
 
+    def clean_dest(self) -> List[Path]:
+        total_removed = []
+        for file in self.dest_dir.glob("**"):
+            if not (file.is_file() and file.suffix.lower() in FileType.HTML.value):
+                continue
+
+            file.unlink(missing_ok=True)
+            total_removed.append(file)
+
+        return total_removed

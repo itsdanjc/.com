@@ -26,7 +26,10 @@ class BuildStats:
 
 
     def summary(self) -> str:
-        total_pages = self.created + self.changed + self.unchanged
+        total_pages = sum(
+            {self.created, self.changed, self.unchanged, self.deleted}
+        )
+
         if total_pages == 0:
             return "Nothing to do."
 
@@ -54,7 +57,10 @@ class BuildStats:
                 lines.append(f"  {name.ljust(width)} {value}")
         return "\n".join(lines)
 
-    def add_stat(self, build_reason: BuildReason):
+    def add_stat(self, build_reason: BuildReason | int):
+        if isinstance(build_reason, int):
+            build_reason = BuildReason(build_reason)
+
         match build_reason:
             case BuildReason.CHANGED:
                 self.changed += 1
