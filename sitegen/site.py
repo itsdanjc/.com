@@ -51,6 +51,7 @@ class SiteRoot:
             if not (file.is_file() and file.suffix.lower() in FileType.HTML.value):
                 continue
 
+            logger.debug("Cleanup deleted %s", file)
             file.unlink(missing_ok=True)
             total_removed.append(file)
 

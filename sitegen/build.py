@@ -192,7 +192,9 @@ class Page(Markdown):
             html = self.template.render(
                 page=template_context, **jinja_context
             )
-            f.write(html)
+
+            if not self.context.validate_only:
+                f.write(html)
 
 def build(
         build_context: BuildContext,

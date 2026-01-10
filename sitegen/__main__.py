@@ -27,14 +27,17 @@ def main(argv: Optional[list[str]] = None) -> None:
     # Build command
     build_cmd = commands.add_parser("build", help="Build the site.")
     build_cmd.add_argument(
-        "-f","--force", action="store_true", help="Rebuild all pages.")
+        "-f","--force", action="store_true",
+        help="force rebuild of all pages")
     build_cmd.add_argument(
-        "-c","--clean", action="store_true", help="Clear the output directory, then build.")
+        "-c","--clean", action="store_true",
+        help="clear the build directory, then build")
     build_cmd.add_argument(
-        "-d","--dry-run", action="store_true", help="Run as normal. but don't create build files.")
+        "-d","--dry-run", action="store_true",
+        help="run as normal. but don't create build files")
     build_cmd.add_argument(
-        "-p", "--working-dir", type=Path, default=cwd,
-        help="Use the specified directory, instead of the current directory")
+        "-r", "--site-root", type=Path, default=cwd, metavar="PATH",
+        help="location of webroot, if not at the current working directory")
 
     args = parser.parse_args(argv)
     print(CLI_HEADER_MSG, end="\n\n")
@@ -54,15 +57,17 @@ def build(force: bool, directory: Path, perform_clean: bool, dry_run: bool) -> N
     site = SiteRoot(directory.resolve())
 
     if perform_clean:
-        logger.info("Performing cleanup. %s", site.dest_dir.name)
+        logger.info("Performing cleanup before build.")
         site.clean_dest()
 
     logger.info("Building site at %s", directory)
     with BuildStats() as build_stats:
         for context in site.tree_iter():
             name = context.source_path.name
+            context.validate_only = dry_run
 
-            if not (context.is_modified or force):
+            modified = (context.is_modified or force or dry_run)
+            if not modified:
                 logger.debug("Found unmodified %s", name)
                 continue
 
@@ -70,9 +75,9 @@ def build(force: bool, directory: Path, perform_clean: bool, dry_run: bool) -> N
 
             try:
                 build_page(context)
-            except (OSError, TemplateError):
+            except (OSError, TemplateError, FileExistsError) as e:
                 build_stats.errors += 1
-                logger.exception("Failed to build %s", name)
+                logger.exception("Failed to build", exc_info=e)
                 continue
 
             logger.info("Build OK")

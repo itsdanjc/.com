@@ -11,6 +11,7 @@ class BuildReason(IntEnum):
     CHANGED = 1
     UNCHANGED = 2
     DELETED = 3
+    VALIDATION = 4
 
 
 class FileType(Enum):
@@ -67,6 +68,7 @@ class BuildContext:
     :ivar dest_path: Path to the output destination directory relative to webroot.
     :ivar dest_path_lastmod: The last modified date of the destination file if exists.
     :ivar template_path: Path to the template directory relative to webroot.
+    :ivar is_dry_run: Do not write build to output file.
     """
     source_path: Final[Path]
     source_path_lastmod: Final[datetime]
@@ -74,12 +76,14 @@ class BuildContext:
     dest_path_lastmod: Final[Optional[datetime]]
     template_path: Final[Path]
     type: Final[FileType]
+    validate_only: bool
 
     def __init__(self, site: "SiteRoot", source: Path, dest: Path): #type: ignore
         self.source_path = site.source_dir.joinpath(source)
         self.dest_path = site.dest_dir.joinpath(dest)
         self.template_path = site.template_dir
         self.type = FileType.from_suffix(self.source_path.suffix)
+        self.validate_only = False
 
         self.source_path_lastmod = datetime.fromtimestamp(
             self.source_path.stat().st_mtime,
@@ -95,6 +99,9 @@ class BuildContext:
 
     @property
     def build_reason(self) -> BuildReason:
+        if self.validate_only:
+            return BuildReason.VALIDATION
+
         if not self.dest_path.exists():
             return BuildReason.CREATED
 
@@ -105,5 +112,5 @@ class BuildContext:
 
     @property
     def is_modified(self) -> bool:
-        reasons = {BuildReason.CREATED, BuildReason.CHANGED}
+        reasons = {BuildReason.CREATED, BuildReason.CHANGED, BuildReason.VALIDATION}
         return self.build_reason in reasons

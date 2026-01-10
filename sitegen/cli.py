@@ -12,6 +12,7 @@ class BuildStats:
     deleted: int = 0
     errors: int = 0
     draft: int = 0
+    validated: int = 0
     start_time: float
     end_time: float
     total_time_s: float
@@ -26,9 +27,11 @@ class BuildStats:
 
 
     def summary(self) -> str:
-        total_pages = sum(
-            {self.created, self.changed, self.unchanged, self.deleted}
-        )
+        total_pages = sum({
+            self.created, self.changed,
+             self.unchanged, self.deleted,
+            self.validated, self.errors,
+        })
 
         if total_pages == 0:
             return "Nothing to do."
@@ -70,3 +73,5 @@ class BuildStats:
                 self.created += 1
             case BuildReason.DELETED:
                 self.deleted += 1
+            case BuildReason.VALIDATION:
+                self.validated += 1
