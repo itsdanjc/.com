@@ -12,7 +12,9 @@ from .exec import FileTypeError
 from .context import BuildContext, TemplateContext, FileType
 
 logger = logging.getLogger(__name__)
-BLANK_PAGE_DEFAULT: Final[str] = "# {heading}\n{body}"
+
+PAGE_DEFAULT: Final[str] = "# {heading}\n{body}"
+PAGE_DEFAULT_BODY: Final[str] = "*Nothing here yet...*"
 DEFAULT_EXTENSIONS: Final[frozenset[str]] = frozenset(
     {'footnote', 'toc', 'codehilite', 'gfm'}
 )
@@ -141,7 +143,7 @@ class Page(Markdown):
                 return e
         return title
 
-    def parse(self, default: str | None = None) -> None:
+    def parse(self, default: str | None = "") -> None:
         """
         Parse the body of this page.
         If the body of the source file is empty, will fallback to default content.
@@ -151,7 +153,9 @@ class Page(Markdown):
         self.body = super().parse(body)
 
         if len(self.body.children) == 0:
-            self.body = super().parse(default)
+            default_heading = self.context.dest_path.stem
+            default_body = PAGE_DEFAULT.format(heading=default_heading, body=default)
+            self.body = super().parse(default_body)
             logger.warning(
                 "%s has empty body and should probably be set to draft.",
                 self.context.source_path.name
@@ -225,7 +229,7 @@ def build(
         return
 
     page = Page(build_context, jinja_env, extensions)
-    page.parse(BLANK_PAGE_DEFAULT)
+    page.parse(PAGE_DEFAULT_BODY)
 
     if page.metadata.get("is_draft", False):
         logger.info("Page %s is draft. Skipping...", build_context.source_path)
