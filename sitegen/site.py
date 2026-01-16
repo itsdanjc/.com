@@ -1,7 +1,7 @@
 from __future__ import annotations
 import logging
 from pathlib import Path
-from typing import Final, List, Optional
+from typing import Final, List, Optional, Set
 from collections.abc import Generator
 from .context import BuildContext, FileType
 
@@ -31,12 +31,33 @@ class TreeNode:
         for sub_dir in self.dirs:
             yield from sub_dir
 
+    def __getitem__(self, path: Path) -> TreeNode | BuildContext:
+        for sub_dir in self.yield_dirs():
+            if sub_dir.path == path:
+                return sub_dir
+
+        for page in self.yield_pages():
+            if page.source_path == path:
+                return page
+
+        raise KeyError(f"Directory or file {path.name} not in {self.path} or a subdirectory")
+
+    def yield_dirs(self) -> Generator[TreeNode, None, None]:
+        yield from self.dirs
+        for sub_dir in self.dirs:
+            yield from sub_dir.yield_dirs()
+
+    def yield_pages(self) -> Generator[BuildContext, None, None]:
+        yield from self.pages
+        for sub_dir in self.dirs:
+            yield from sub_dir.yield_pages()
+
 
 class SiteRoot:
     """
     This class represents the root of the site.
     """
-    root_path: Final[Path]
+    root: Final[Path]
     tree: TreeNode
     valid_ext: Final[frozenset[str]] = FileType.all()
     source_dir: Final[Path]
@@ -46,20 +67,18 @@ class SiteRoot:
     url_index: Final[str] = URL_INDEX
 
     def __init__(self, path: Path):
-        self.root_path = path
-        self.tree = TreeNode(path)
+        self.root = path
         self.source_dir = path.joinpath(SOURCE_DIR)
         self.dest_dir = path.joinpath(DEST_DIR)
         self.template_dir = path.joinpath(TEMPLATE_DIR)
+        self.tree = TreeNode(self.source_dir)
 
     def tree_iter(self) -> Generator[BuildContext, None, None]:
-        md_dir = self.root_path.joinpath(SOURCE_DIR)
-
-        for file in md_dir.glob("**"):
+        for file in self.source_dir.glob("**"):
             if not (file.is_file() and file.suffix.lower() in self.valid_ext):
                 continue
 
-            file_path = file.relative_to(md_dir)
+            file_path = file.relative_to(self.source_dir)
             dest = file_path.with_suffix(".html")
 
             yield BuildContext(
