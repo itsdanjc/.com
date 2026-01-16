@@ -10,22 +10,16 @@ from typing import Iterable, Final, Any
 from markupsafe import Markup
 from .exec import FileTypeError
 from .context import BuildContext, TemplateContext, FileType
+from .templates import PAGE_FALLBACK
 
 logger = logging.getLogger(__name__)
 
 PAGE_DEFAULT: Final[str] = "# {heading}\n{body}"
 PAGE_DEFAULT_BODY: Final[str] = "*Nothing here yet...*"
+
 DEFAULT_EXTENSIONS: Final[frozenset[str]] = frozenset(
     {'footnote', 'toc', 'codehilite', 'gfm'}
 )
-DEFAULT_PAGE_TEMPLATE: Final[Template] = Template(
-    "<html><head><title>{{page.title|striptags}}</title>"
-    "</head><body><h1>{{page.title}}</h1>"
-    "<div style=\"float:right\">{{page.table_of_contents}}</div>"
-    "<p>Last Modified: {{page.modified.strftime(\"%d %b %y\")}}"
-    "</p>{{page.html}}</body></html>"
-)
-DEFAULT_PAGE_TEMPLATE.name = "default"
 
 
 class Page(Markdown):
@@ -128,7 +122,7 @@ class Page(Markdown):
 
     def set_template(self, *templates: str | Template) -> None:
         self.template = self.jinja_env.get_or_select_template(
-            [*templates, DEFAULT_PAGE_TEMPLATE]
+            [*templates, PAGE_FALLBACK]
         )
 
     def set_title(self) -> Heading:
