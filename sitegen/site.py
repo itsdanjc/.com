@@ -1,8 +1,9 @@
 from __future__ import annotations
 import logging
+from enum import Enum
 from pathlib import Path
 from typing import Final, List, Union, TypeAlias
-from collections.abc import Generator
+from collections.abc import Generator, Callable
 from .context import BuildContext, FileType
 
 logger = logging.getLogger(__name__)
@@ -14,6 +15,16 @@ URL_BASE: Final[str] = "/"
 URL_INDEX: Final[str] = "index.html"
 
 TreeItem: TypeAlias = Union["TreeNode", BuildContext]
+
+
+class SortKey(Enum):
+    """Sort key methods. For TreeNode.sort()"""
+    BUILD_REASON = lambda page: page.build_reason
+    FILE_TYPE = lambda page: page.type
+    PATH = lambda page: page.url_path
+    LAST_MODIFIED = lambda page: page.source_path_lastmod
+    LAST_BUILD_DATE = lambda page: page.dest_path_lastmod
+
 
 class TreeNode:
     path: Final[Path]
@@ -61,9 +72,18 @@ class TreeNode:
         )
 
     def walk(self) -> Generator[TreeNode, None, None]:
+        """Return a generator of all subdirectories of self"""
         yield from self.sub_dirs
         for s_d in self.sub_dirs:
             yield from s_d.walk()
+
+    def sort(self, key: SortKey, reverse: bool | None = True) -> List[BuildContext]:
+        """Return a sorted copy of self."""
+        return sorted(
+            self,
+            key=key.value,
+            reverse=reverse
+        )
 
 
 class TreeBuilder:
