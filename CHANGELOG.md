@@ -13,3 +13,7 @@
 
 ### Fixes
 - Fixed issue where blank page default was not populated.
+
+## v0.2.0
+### Added
+- RSS Feed.

@@ -1,12 +1,15 @@
 from __future__ import annotations
 import logging
+import sys
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Final, List, Union, TypeAlias
-from collections.abc import Generator
+from typing import Final, List, Union, TypeAlias, Any
+from collections.abc import Generator, Callable
 from jinja2 import Environment, FileSystemLoader, Template
 from .context import BuildContext, FileType
 from .templates import RSS_FALLBACK
+from .build import Page, DEFAULT_EXTENSIONS
 
 logger = logging.getLogger(__name__)
 
@@ -79,11 +82,11 @@ class TreeNode:
         for s_d in self.sub_dirs:
             yield from s_d.walk()
 
-    def sort(self, key: SortKey, reverse: bool | None = True) -> List[BuildContext]:
+    def sort(self, key: Callable[[BuildContext], Any], reverse: bool | None = True) -> List[BuildContext]:
         """Return a sorted copy of self."""
         return sorted(
             self,
-            key=key.value,
+            key=key,
             reverse=reverse
         )
 
@@ -178,3 +181,21 @@ class SiteRoot:
             total_removed.append(file)
 
         return total_removed
+
+    def make_rss(self) -> str:
+        rss_template = self.env.get_or_select_template(
+            ["feed.xml", RSS_FALLBACK]
+        )
+
+        tree = []
+        now: datetime = datetime.now(timezone.utc)
+        for context in self.tree.sort(SortKey.LAST_MODIFIED):
+            page = Page(context, DEFAULT_EXTENSIONS)
+            page.parse()
+            tree.append(page.get_template_context())
+
+        return rss_template.render(
+            site=self,
+            tree=tree,
+            now=now
+        )

@@ -155,21 +155,8 @@ class Page(Markdown):
 
         self.title = self.set_title()
 
-    def render(self, *templates: str | Template, **jinja_context) -> None:
-        """
-        Render this page object to HTML and write it to disk.
-
-        Uses the template `page.html` located in `_fragments` else,
-        will fallback to use `DEFAULT_PAGE_TEMPLATE`. Renders the page
-        using the current object as context.
-
-        :param templates:
-        :param jinja_context: Additional context when rendering.
-        :return: None
-        """
-        self.set_template(*templates, "page.html")
-
-        template_context = TemplateContext(
+    def get_template_context(self) -> TemplateContext:
+        return TemplateContext(
             html = Markup(
                 super().render(self.body)
             ),
@@ -184,6 +171,21 @@ class Page(Markdown):
             url=self.context.url_path,
             now = datetime.now(timezone.utc)
         )
+
+    def render(self, *templates: str | Template, **jinja_context) -> None:
+        """
+        Render this page object to HTML and write it to disk.
+
+        Uses the template `page.html` located in `_fragments` else,
+        will fallback to use `DEFAULT_PAGE_TEMPLATE`. Renders the page
+        using the current object as context.
+
+        :param templates:
+        :param jinja_context: Additional context when rendering.
+        :return: None
+        """
+        self.set_template(*templates, "page.html")
+        template_context = self.get_template_context()
 
         with self.w_open() as f:
             html = self.template.render(
