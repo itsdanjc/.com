@@ -5,19 +5,20 @@ from pathlib import Path
 from typing import Optional, Final
 from jinja2 import TemplateError
 from .log import configure_logging
-from .site import SiteRoot
+from .site import SiteRoot, TreeBuilder
 from .build import build as build_page
 from .cli import BuildStats
 from . import __version__, __author__
 
-CLI_HEADER_MSG: Final[str] = f"sitegen {__version__}, by {__author__}"
+CLI_NAME = "sitegen"
+CLI_HEADER_MSG: Final[str] = f"{CLI_NAME} {__version__}, by {__author__}"
 CLI_DESC: Final[str] = "Epilogue"
 
 logger = logging.getLogger(__name__)
 cwd = Path.cwd()
 
 def main(argv: Optional[list[str]] = None) -> None:
-    parser = argparse.ArgumentParser(prog="cli", description=CLI_DESC)
+    parser = argparse.ArgumentParser(prog=CLI_NAME, description=CLI_DESC)
     commands = parser.add_subparsers(title="commands", dest="commands", required=True)
 
     # Global Arguments
@@ -55,14 +56,17 @@ def main(argv: Optional[list[str]] = None) -> None:
 
 def build(force: bool, directory: Path, perform_clean: bool, dry_run: bool) -> None:
     site = SiteRoot(directory.resolve())
+    logger.info("Building site at %s", site.root)
 
-    if perform_clean:
-        logger.info("Performing cleanup before build.")
-        site.clean_dest()
-
-    logger.info("Building site at %s", directory)
     with BuildStats() as build_stats:
-        for context in site.tree_iter():
+        logger.info("Indexing source directory.")
+        TreeBuilder(site)
+
+        if perform_clean:
+            logger.info("Performing cleanup.")
+            site.clean_dest()
+
+        for context in site.tree:
             name = context.source_path.name
             context.validate_only = dry_run
 

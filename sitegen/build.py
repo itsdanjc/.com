@@ -10,20 +10,16 @@ from typing import Iterable, Final, Any
 from markupsafe import Markup
 from .exec import FileTypeError
 from .context import BuildContext, TemplateContext, FileType
+from .templates import PAGE_FALLBACK
 
 logger = logging.getLogger(__name__)
-BLANK_PAGE_DEFAULT: Final[str] = "# {heading}\n{body}"
+
+PAGE_DEFAULT: Final[str] = "# {heading}\n{body}"
+PAGE_DEFAULT_BODY: Final[str] = "*Nothing here yet...*"
+
 DEFAULT_EXTENSIONS: Final[frozenset[str]] = frozenset(
     {'footnote', 'toc', 'codehilite', 'gfm'}
 )
-DEFAULT_PAGE_TEMPLATE: Final[Template] = Template(
-    "<html><head><title>{{page.title|striptags}}</title>"
-    "</head><body><h1>{{page.title}}</h1>"
-    "<div style=\"float:right\">{{page.table_of_contents}}</div>"
-    "<p>Last Modified: {{page.modified.strftime(\"%d %b %y\")}}"
-    "</p>{{page.html}}</body></html>"
-)
-DEFAULT_PAGE_TEMPLATE.name = "default"
 
 
 class Page(Markdown):
@@ -126,7 +122,7 @@ class Page(Markdown):
 
     def set_template(self, *templates: str | Template) -> None:
         self.template = self.jinja_env.get_or_select_template(
-            [*templates, DEFAULT_PAGE_TEMPLATE]
+            [*templates, PAGE_FALLBACK]
         )
 
     def set_title(self) -> Heading:
@@ -141,7 +137,7 @@ class Page(Markdown):
                 return e
         return title
 
-    def parse(self, default: str | None = None) -> None:
+    def parse(self, default: str | None = "") -> None:
         """
         Parse the body of this page.
         If the body of the source file is empty, will fallback to default content.
@@ -151,7 +147,9 @@ class Page(Markdown):
         self.body = super().parse(body)
 
         if len(self.body.children) == 0:
-            self.body = super().parse(default)
+            default_heading = self.context.dest_path.stem
+            default_body = PAGE_DEFAULT.format(heading=default_heading, body=default)
+            self.body = super().parse(default_body)
             logger.warning(
                 "%s has empty body and should probably be set to draft.",
                 self.context.source_path.name
@@ -185,6 +183,7 @@ class Page(Markdown):
             ),
             modified = self.context.source_path_lastmod,
             yml = self.metadata,
+            url=self.context.url_path,
             now = datetime.now(timezone.utc)
         )
 
@@ -224,7 +223,7 @@ def build(
         return
 
     page = Page(build_context, jinja_env, extensions)
-    page.parse(BLANK_PAGE_DEFAULT)
+    page.parse(PAGE_DEFAULT_BODY)
 
     if page.metadata.get("is_draft", False):
         logger.info("Page %s is draft. Skipping...", build_context.source_path)
