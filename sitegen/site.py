@@ -1,7 +1,6 @@
 from __future__ import annotations
 import logging
 import os
-import sys
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
@@ -17,7 +16,7 @@ logger = logging.getLogger(__name__)
 SOURCE_DIR: Final[Path] = Path("source")
 DEST_DIR: Final[Path] = Path("build")
 TEMPLATE_DIR: Final[Path] = Path("templates")
-URL_BASE: Final[str] = "/"
+URL_BASE: Final[str] = "https://itsdanjc.com"
 URL_INDEX: Final[str] = "index.html"
 
 TreeItem: TypeAlias = Union["TreeNode", BuildContext]

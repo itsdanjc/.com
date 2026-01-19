@@ -95,7 +95,10 @@ def build(force: bool, directory: Path, perform_clean: bool, dry_run: bool, no_r
 
         if not (no_rss or dry_run):
             rss = site.make_rss()
-            with site.dest_dir.joinpath("feed.xml").open("w") as out:
+            rss_path = site.dest_dir.joinpath("feed.xml")
+
+            rss_path.parent.mkdir(exist_ok=True)
+            with rss_path.open("w") as out:
                 out.write(rss)
 
     logger.info(build_stats.summary())
