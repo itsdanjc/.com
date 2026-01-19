@@ -114,7 +114,7 @@ def build(
 
         if not (no_sitemap or dry_run):
             sitemap = site.make_sitemap()
-            sitemap_path = site.dest_dir.joinpath("feed.xml")
+            sitemap_path = site.dest_dir.joinpath("sitemap.xml")
 
             sitemap_path.parent.mkdir(exist_ok=True)
             with sitemap_path.open("w") as out:

@@ -167,7 +167,7 @@ class SiteRoot:
         self.env = Environment(
             autoescape=True,
             auto_reload=False,
-            loader=FileSystemLoader(self.source_dir)
+            loader=FileSystemLoader(self.template_dir)
         )
 
     def clean_dest(self) -> List[Path]:

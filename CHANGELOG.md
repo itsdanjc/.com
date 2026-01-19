@@ -21,3 +21,4 @@
 
 ### Fixes
 - Fixed compatibility with Python > 1.12 - https://github.com/itsdanjc/itsdanjc.com/issues/12.
+- Templates not loaded from correct location.
