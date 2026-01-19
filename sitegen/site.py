@@ -198,7 +198,7 @@ class SiteRoot:
 
     def make_sitemap(self) -> str:
         sitemap_template = self.env.get_or_select_template(
-            ["sitemap.xml", RSS_FALLBACK]
+            ["sitemap.xml", SITEMAP_FALLBACK]
         )
 
         tree = []
