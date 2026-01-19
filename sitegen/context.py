@@ -1,3 +1,4 @@
+from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import IntEnum, Enum
@@ -40,14 +41,14 @@ class FileType(Enum):
     })
 
     @classmethod
-    def from_suffix(cls, suffix: str) -> "FileType":
+    def from_suffix(cls, suffix: str) -> FileType:
         for f_st in cls:
             if suffix.lower() in f_st.value:
                 return f_st
         return cls.OTHER
 
     @classmethod
-    def all(cls) -> frozenset["FileType"]:
+    def all(cls) -> frozenset[FileType]:
         return frozenset().union(*(f_st.value for f_st in cls))
 
 
