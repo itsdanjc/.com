@@ -17,3 +17,6 @@
 ## v0.2.0
 ### Added
 - RSS Feed.
+
+### Fixes
+- Fixed compatibility with Python > 1.12 - https://github.com/itsdanjc/itsdanjc.com/issues/12.

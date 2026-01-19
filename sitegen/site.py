@@ -1,5 +1,6 @@
 from __future__ import annotations
 import logging
+import os
 import sys
 from datetime import datetime, timezone
 from enum import Enum
@@ -104,15 +105,15 @@ class TreeBuilder:
         self.site = site
         self.node = site.tree
 
-        for curr_dir, dir_list, file_list in self.site.source_dir.walk():
-            self.node_path = curr_dir
+        for curr_dir, dir_list, file_list in os.walk(self.site.source_dir):
+            self.node_path = Path(curr_dir)
             self.node_dir_list = dir_list
             self.node_file_list = file_list
 
             self.node_not_root = (curr_dir != self.site.tree.path)
 
             if self.node_not_root:
-                self.node = self.site.tree[curr_dir]
+                self.node = self.site.tree[self.node_path]
 
             self.create_directory_nodes()
             self.create_file_nodes()
