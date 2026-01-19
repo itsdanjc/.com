@@ -40,6 +40,9 @@ def main(argv: Optional[list[str]] = None) -> None:
         "--no-rss", action="store_true",
         help="do not update rss feed.")
     build_cmd.add_argument(
+        "--no-sitemap", action="store_true",
+        help="do not update sitemap feed.")
+    build_cmd.add_argument(
         "-r", "--site-root", type=Path, default=cwd, metavar="PATH",
         help="location of webroot, if not at the current working directory")
 
@@ -53,14 +56,22 @@ def main(argv: Optional[list[str]] = None) -> None:
                 args.site_root,
                 args.clean,
                 args.dry_run,
-                args.no_rss
+                args.no_rss,
+                args.no_sitemap
             )
     except KeyboardInterrupt:
         sys.exit(0)
 
 
 
-def build(force: bool, directory: Path, perform_clean: bool, dry_run: bool, no_rss: bool) -> None:
+def build(
+        force: bool,
+        directory: Path,
+        perform_clean: bool,
+        dry_run: bool,
+        no_rss: bool,
+        no_sitemap: bool
+) -> None:
     site = SiteRoot(directory.resolve())
     logger.info("Building site at %s", site.root)
 
@@ -100,6 +111,14 @@ def build(force: bool, directory: Path, perform_clean: bool, dry_run: bool, no_r
             rss_path.parent.mkdir(exist_ok=True)
             with rss_path.open("w") as out:
                 out.write(rss)
+
+        if not (no_sitemap or dry_run):
+            sitemap = site.make_sitemap()
+            sitemap_path = site.dest_dir.joinpath("feed.xml")
+
+            sitemap_path.parent.mkdir(exist_ok=True)
+            with sitemap_path.open("w") as out:
+                out.write(sitemap)
 
     logger.info(build_stats.summary())
 

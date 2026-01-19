@@ -6,9 +6,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Final, List, Union, TypeAlias, Any
 from collections.abc import Generator, Callable
-from jinja2 import Environment, FileSystemLoader, Template
+from jinja2 import Environment, FileSystemLoader
 from .context import BuildContext, FileType
-from .templates import RSS_FALLBACK
+from .templates import RSS_FALLBACK, SITEMAP_FALLBACK
 from .build import Page, DEFAULT_EXTENSIONS
 
 logger = logging.getLogger(__name__)
@@ -194,8 +194,18 @@ class SiteRoot:
             page.parse()
             tree.append(page.get_template_context())
 
-        return rss_template.render(
-            site=self,
-            tree=tree,
-            now=now
+        return rss_template.render(site=self, tree=tree, now=now)
+
+    def make_sitemap(self) -> str:
+        sitemap_template = self.env.get_or_select_template(
+            ["sitemap.xml", RSS_FALLBACK]
         )
+
+        tree = []
+        now: datetime = datetime.now(timezone.utc)
+        for context in self.tree.sort(SortKey.LAST_MODIFIED):
+            page = Page(context, DEFAULT_EXTENSIONS)
+            page.parse()
+            tree.append(page.get_template_context())
+
+        return sitemap_template.render(site=self, tree=tree, now=now)
