@@ -13,3 +13,12 @@
 
 ### Fixes
 - Fixed issue where blank page default was not populated.
+
+## v0.2.0
+### Added
+- RSS Feed.
+- Sitemap.
+
+### Fixes
+- Fixed compatibility with Python > 1.12 - https://github.com/itsdanjc/itsdanjc.com/issues/12.
+- Templates not loaded from correct location.

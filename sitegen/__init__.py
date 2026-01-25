@@ -3,7 +3,7 @@ from .context import BuildContext, FileType, BuildReason
 from .exec import BuildException, FileTypeError
 from .site import SiteRoot
 
-__version__ = "0.1.3"
+__version__ = "0.2.0"
 __author__ = "itsdanjc <dan@itsdanjc.com>"
 __all__ = [
     "Page",

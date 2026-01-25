@@ -1,17 +1,22 @@
 from __future__ import annotations
 import logging
+import os
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Final, List, Union, TypeAlias
+from typing import Final, List, Union, TypeAlias, Any
 from collections.abc import Generator, Callable
+from jinja2 import Environment, FileSystemLoader
 from .context import BuildContext, FileType
+from .templates import RSS_FALLBACK, SITEMAP_FALLBACK
+from .build import Page, DEFAULT_EXTENSIONS
 
 logger = logging.getLogger(__name__)
 
 SOURCE_DIR: Final[Path] = Path("source")
 DEST_DIR: Final[Path] = Path("build")
 TEMPLATE_DIR: Final[Path] = Path("templates")
-URL_BASE: Final[str] = "/"
+URL_BASE: Final[str] = "https://itsdanjc.com"
 URL_INDEX: Final[str] = "index.html"
 
 TreeItem: TypeAlias = Union["TreeNode", BuildContext]
@@ -77,11 +82,11 @@ class TreeNode:
         for s_d in self.sub_dirs:
             yield from s_d.walk()
 
-    def sort(self, key: SortKey, reverse: bool | None = True) -> List[BuildContext]:
+    def sort(self, key: Callable[[BuildContext], Any], reverse: bool | None = True) -> List[BuildContext]:
         """Return a sorted copy of self."""
         return sorted(
             self,
-            key=key.value,
+            key=key,
             reverse=reverse
         )
 
@@ -99,15 +104,15 @@ class TreeBuilder:
         self.site = site
         self.node = site.tree
 
-        for curr_dir, dir_list, file_list in self.site.source_dir.walk():
-            self.node_path = curr_dir
+        for curr_dir, dir_list, file_list in os.walk(self.site.source_dir):
+            self.node_path = Path(curr_dir)
             self.node_dir_list = dir_list
             self.node_file_list = file_list
 
             self.node_not_root = (curr_dir != self.site.tree.path)
 
             if self.node_not_root:
-                self.node = self.site.tree[curr_dir]
+                self.node = self.site.tree[self.node_path]
 
             self.create_directory_nodes()
             self.create_file_nodes()
@@ -133,7 +138,8 @@ class TreeBuilder:
             context = BuildContext(
                 site=self.site,
                 source=file_path,
-                dest=dest
+                dest=dest,
+                env=self.site.env
             )
 
             self.node.pages.append(context)
@@ -148,6 +154,7 @@ class SiteRoot:
     source_dir: Final[Path]
     dest_dir: Final[Path]
     template_dir: Final[Path]
+    env: Final[Environment]
     url_base: Final[str] = URL_BASE
     url_index: Final[str] = URL_INDEX
 
@@ -157,6 +164,11 @@ class SiteRoot:
         self.dest_dir = path.joinpath(DEST_DIR)
         self.template_dir = path.joinpath(TEMPLATE_DIR)
         self.tree = TreeNode(self.source_dir)
+        self.env = Environment(
+            autoescape=True,
+            auto_reload=False,
+            loader=FileSystemLoader(self.template_dir)
+        )
 
     def clean_dest(self) -> List[Path]:
         total_removed = []
@@ -169,3 +181,31 @@ class SiteRoot:
             total_removed.append(file)
 
         return total_removed
+
+    def make_rss(self) -> str:
+        rss_template = self.env.get_or_select_template(
+            ["feed.xml", RSS_FALLBACK]
+        )
+
+        tree = []
+        now: datetime = datetime.now(timezone.utc)
+        for context in self.tree.sort(SortKey.LAST_MODIFIED):
+            page = Page(context, DEFAULT_EXTENSIONS)
+            page.parse()
+            tree.append(page.get_template_context())
+
+        return rss_template.render(site=self, tree=tree, now=now)
+
+    def make_sitemap(self) -> str:
+        sitemap_template = self.env.get_or_select_template(
+            ["sitemap.xml", SITEMAP_FALLBACK]
+        )
+
+        tree = []
+        now: datetime = datetime.now(timezone.utc)
+        for context in self.tree.sort(SortKey.LAST_MODIFIED):
+            page = Page(context, DEFAULT_EXTENSIONS)
+            page.parse()
+            tree.append(page.get_template_context())
+
+        return sitemap_template.render(site=self, tree=tree, now=now)
