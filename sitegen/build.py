@@ -10,7 +10,7 @@ from jinja2 import Environment, Template
 from typing import Iterable, Final, Any
 from markupsafe import Markup
 from .exec import FileTypeError
-from .context import BuildContext, TemplateContext, FileType
+from .context import BuildContext, TemplateContext, FileType, Metrics
 from .templates import PAGE_FALLBACK
 
 logger = logging.getLogger(__name__)
@@ -156,21 +156,27 @@ class Page(Markdown):
         self.title = self.set_title()
 
     def get_template_context(self) -> TemplateContext:
-        return TemplateContext(
-            html = Markup(
+        t_c = TemplateContext()
+        with Metrics() as metrics:
+            t_c.modified = self.context.source_path_lastmod
+            t_c.yml = self.metadata
+            t_c.url = self.context.url_path
+            t_c.now = datetime.now(timezone.utc)
+
+            t_c.html = Markup(
                 super().render(self.body)
-            ),
-            table_of_contents = Markup(
+            )
+
+            t_c.table_of_contents = Markup(
                 self.renderer.render_toc()
-            ),
-            title = Markup(
+            )
+
+            t_c.title = Markup(
                 self.renderer.render_children(self.title)
-            ),
-            modified = self.context.source_path_lastmod,
-            yml = self.metadata,
-            url=self.context.url_path,
-            now = datetime.now(timezone.utc)
-        )
+            )
+
+        t_c.metrics = metrics
+        return t_c
 
     def render(self, *templates: str | Template, **jinja_context) -> None:
         """
@@ -187,6 +193,7 @@ class Page(Markdown):
         self.set_template(*templates, "page.html")
         template_context = self.get_template_context()
 
+        template_context.metrics["template"] = self.template.name
         with self.w_open() as f:
             html = self.template.render(
                 page=template_context, **jinja_context

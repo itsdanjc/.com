@@ -1,9 +1,11 @@
 from __future__ import annotations
-from dataclasses import dataclass
+import time
+import tracemalloc
+from collections.abc import MutableMapping, Iterator
 from datetime import datetime, timezone
 from enum import IntEnum, Enum
 from pathlib import Path
-from typing import Final, Optional, Any, Mapping
+from typing import Final, Optional, Any, Mapping, Dict
 from urllib.parse import urljoin, quote
 from jinja2 import Environment
 from markupsafe import Markup
@@ -52,7 +54,6 @@ class FileType(Enum):
         return frozenset().union(*(f_st.value for f_st in cls))
 
 
-@dataclass(frozen=True)
 class TemplateContext:
     html: Markup
     table_of_contents: Markup
@@ -61,6 +62,7 @@ class TemplateContext:
     url: str
     yml: Mapping[Any, Any]
     now: datetime
+    metrics: Metrics
 
 
 class BuildContext:
@@ -129,3 +131,39 @@ class BuildContext:
     def is_modified(self) -> bool:
         reasons = {BuildReason.CREATED, BuildReason.CHANGED, BuildReason.VALIDATION}
         return self.build_reason in reasons
+
+
+class Metrics(MutableMapping):
+    __mapping: Dict[str, Any]
+
+    def __init__(self):
+        self.__mapping = {
+            "start_time": 0.0,
+            "end_time": 0.0,
+            "total_time": 0.0,
+        }
+
+    def __enter__(self) -> Metrics:
+        self.__mapping["start_time"] = time.perf_counter()
+        return self
+
+    def __exit__(self, *args):
+        self.__mapping["end_time"] = time.perf_counter()
+        self.__mapping["total_time"] = (
+            self.__mapping["end_time"] - self.__mapping["start_time"]
+        )
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self.__mapping[key] = value
+
+    def __getitem__(self, key: str) -> Any:
+        return self.__mapping[key]
+
+    def __delitem__(self, key: str) -> None:
+        del self.__mapping[key]
+
+    def __iter__(self) -> Iterator[Any]:
+        return iter(self.__mapping)
+
+    def __len__(self) -> int:
+        return len(self.__mapping)
