@@ -2,12 +2,11 @@ from __future__ import annotations
 import logging
 import re
 from datetime import datetime, timezone
-from io import TextIOWrapper
 from charset_normalizer import from_path
-from marko import Markdown, MarkoExtension
+from marko import Markdown
 from marko.block import Document, Heading
 from jinja2 import Environment, Template
-from typing import Iterable, Final, Any, TypeAlias, Union
+from typing import Final, Any, TypeAlias, Union
 from markupsafe import Markup
 from abc import ABC, abstractmethod
 from .exec import FileTypeError
@@ -105,12 +104,15 @@ class MarkdownPage(Page):
         :return: None
         """
 
+        default_heading = self.build_context.dest_path.stem
         self.body = self.__marko.parse(
             self.read()
         )
 
+        if default_heading == "index":
+            default_heading = self.build_context.source_path.parent.stem
+
         if len(self.body.children) == 0:
-            default_heading = self.build_context.dest_path.stem
             default_body = PAGE_DEFAULT.format(heading=default_heading, body=PAGE_DEFAULT_BODY)
             self.body = self.__marko.parse(default_body)
 
@@ -121,24 +123,21 @@ class MarkdownPage(Page):
         )
 
     def __extract_title(self) -> None:
-        # Set a default before attempting to get actual title
-        title = Heading(
-            re.match(Heading.pattern, "# Untitled")
-        )
-
+        default_heading = self.build_context.dest_path.stem
         for e in self.body.children:
             if isinstance(e, Heading) and e.level == 1:
                 self.body.children.remove(e)  # type: ignore
-                self.title = Markup(
-                    self.__marko.renderer.render_children(e)
-                )
+                title = self.__marko.renderer.render_children(e)
+                self.title = Markup(title)
+                return
 
-        self.title = Markup(
-            self.__marko.renderer.render_children(title)
-        )
+        if default_heading == "index":
+            default_heading = self.build_context.source_path.parent.stem
+
+        self.title = Markup(default_heading)
 
     def render(self) -> None:
-        if getattr(self, "template_context", None):
+        if hasattr(self, "template_context"):
             return
 
         t_c = TemplateContext()
