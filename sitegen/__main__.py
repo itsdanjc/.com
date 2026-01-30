@@ -6,7 +6,6 @@ from typing import Optional, Final
 from jinja2 import TemplateError
 from .log import configure_logging
 from .site import SiteRoot, TreeBuilder
-from .build import build as build_page
 from .cli import BuildStats
 from . import __version__, __author__
 
@@ -79,46 +78,48 @@ def build(
         logger.info("Indexing source directory.")
         TreeBuilder(site)
 
+
         if perform_clean:
             logger.info("Performing cleanup.")
             site.clean_dest()
 
-        for context in site.tree:
-            name = context.source_path.name
-            context.validate_only = dry_run
-
-            modified = (context.is_modified or force or dry_run)
-            if not modified:
-                logger.debug("Found unmodified %s", name)
-                continue
-
-            logger.info("Building page %s", name)
-
-            try:
-                build_page(context)
-            except (OSError, TemplateError, FileExistsError) as e:
-                build_stats.errors += 1
-                logger.exception("Failed to build", exc_info=e)
-                continue
-
-            logger.info("Build OK")
-            build_stats.add_stat(context.build_reason)
-
-        if not (no_rss or dry_run):
-            rss = site.make_rss()
-            rss_path = site.dest_dir.joinpath("feed.xml")
-
-            rss_path.parent.mkdir(exist_ok=True)
-            with rss_path.open("w") as out:
-                out.write(rss)
-
-        if not (no_sitemap or dry_run):
-            sitemap = site.make_sitemap()
-            sitemap_path = site.dest_dir.joinpath("sitemap.xml")
-
-            sitemap_path.parent.mkdir(exist_ok=True)
-            with sitemap_path.open("w") as out:
-                out.write(sitemap)
+        for page in site.tree:
+                print(page.context.source_path)
+        #     name = context.source_path.name
+        #     context.validate_only = dry_run
+        #
+        #     modified = (context.is_modified or force or dry_run)
+        #     if not modified:
+        #         logger.debug("Found unmodified %s", name)
+        #         continue
+        #
+        #     logger.info("Building page %s", name)
+        #
+        #     try:
+        #         build_page(context)
+        #     except (OSError, TemplateError, FileExistsError) as e:
+        #         build_stats.errors += 1
+        #         logger.exception("Failed to build", exc_info=e)
+        #         continue
+        #
+        #     logger.info("Build OK")
+        #     build_stats.add_stat(context.build_reason)
+        #
+        # if not (no_rss or dry_run):
+        #     rss = site.make_rss()
+        #     rss_path = site.dest_dir.joinpath("feed.xml")
+        #
+        #     rss_path.parent.mkdir(exist_ok=True)
+        #     with rss_path.open("w") as out:
+        #         out.write(rss)
+        #
+        # if not (no_sitemap or dry_run):
+        #     sitemap = site.make_sitemap()
+        #     sitemap_path = site.dest_dir.joinpath("sitemap.xml")
+        #
+        #     sitemap_path.parent.mkdir(exist_ok=True)
+        #     with sitemap_path.open("w") as out:
+        #         out.write(sitemap)
 
     logger.info(build_stats.summary())
 

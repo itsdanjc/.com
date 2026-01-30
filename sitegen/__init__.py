@@ -1,4 +1,4 @@
-from .build import Page, build
+from .build import Page
 from .context import BuildContext, FileType, BuildReason
 from .exec import BuildException, FileTypeError
 from .site import SiteRoot

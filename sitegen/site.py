@@ -4,12 +4,13 @@ import os
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Final, List, Union, TypeAlias, Any
+from typing import Final, List, Union, TypeAlias, Any, Type
 from collections.abc import Generator, Callable
 from jinja2 import Environment, FileSystemLoader
-from .context import BuildContext, FileType
+from .context import FileType, BuildContext
 from .templates import RSS_FALLBACK, SITEMAP_FALLBACK
-from .build import Page, DEFAULT_EXTENSIONS
+from .build import MarkdownPage, DEFAULT_EXTENSIONS
+from .exec import FileTypeError
 
 logger = logging.getLogger(__name__)
 
@@ -19,22 +20,23 @@ TEMPLATE_DIR: Final[Path] = Path("templates")
 URL_BASE: Final[str] = "https://itsdanjc.com"
 URL_INDEX: Final[str] = "index.html"
 
-TreeItem: TypeAlias = Union["TreeNode", BuildContext]
+Page: TypeAlias = Union[MarkdownPage]
+TreeItem: TypeAlias = Union["TreeNode", Page]
 
 
 class SortKey(Enum):
     """Sort key methods. For TreeNode.sort()"""
-    BUILD_REASON = lambda page: page.build_reason
-    FILE_TYPE = lambda page: page.type
-    PATH = lambda page: page.url_path
-    LAST_MODIFIED = lambda page: page.source_path_lastmod
-    LAST_BUILD_DATE = lambda page: page.dest_path_lastmod
+    BUILD_REASON = lambda page: page.context.build_reason
+    FILE_TYPE = lambda page: page.context.type
+    PATH = lambda page: page.context.url_path
+    LAST_MODIFIED = lambda page: page.context.source_path_lastmod
+    LAST_BUILD_DATE = lambda page: page.context.dest_path_lastmod
 
 
 class TreeNode:
     path: Final[Path]
     parent: Final[TreeNode | None]
-    pages: list[BuildContext]
+    pages: list[Page]
     sub_dirs: list[TreeNode]
 
     def __init__(self, path: Path, parent: TreeNode | None = None):
@@ -43,7 +45,7 @@ class TreeNode:
         self.pages = []
         self.sub_dirs = []
 
-    def __iter__(self) -> Generator[BuildContext, None, None]:
+    def __iter__(self) -> Generator[Page, None, None]:
         yield from self.pages
         for s_d in self.sub_dirs:
             yield from s_d
@@ -52,7 +54,7 @@ class TreeNode:
         return sum(1 for _ in self)
 
     def __contains__(self, item: TreeItem) -> bool:
-        if isinstance(item, BuildContext):
+        if isinstance(item, Page):
             return any(i for i in self)
 
         if isinstance(item, TreeNode):
@@ -65,7 +67,7 @@ class TreeNode:
             return self
 
         for page in self:
-            if page.source_path == path:
+            if page.context.source_path == path:
                 return page
 
         for s_d in self.walk():
@@ -82,13 +84,34 @@ class TreeNode:
         for s_d in self.sub_dirs:
             yield from s_d.walk()
 
-    def sort(self, key: Callable[[BuildContext], Any], reverse: bool | None = True) -> List[BuildContext]:
+    def sort(self, key: Callable[[Page], Any], reverse: bool | None = True) -> List[Page]:
         """Return a sorted copy of self."""
         return sorted(
             self,
             key=key,
             reverse=reverse
         )
+
+
+class PageNode:
+    _registry: dict[FileType, Type[Page]] = {
+        FileType.MARKDOWN: MarkdownPage,
+        # FileType.HTML: HtmlPage,
+        # FileType.YAML: YamlPage,
+    }
+
+    @classmethod
+    def register(cls, file_type: FileType, page_cls: Type[Page]) -> None:
+        cls._registry[file_type] = page_cls
+
+    @classmethod
+    def create(cls, context: BuildContext) -> Page:
+        try:
+            page_cls = cls._registry[context.type]
+        except KeyError:
+            raise FileTypeError("Invalid file type", "")
+
+        return page_cls(context)
 
 
 class TreeBuilder:
@@ -142,7 +165,9 @@ class TreeBuilder:
                 env=self.site.env
             )
 
-            self.node.pages.append(context)
+            page_node = PageNode.create(context)
+            page_node.parse()
+            self.node.pages.append(page_node)
 
 
 class SiteRoot:

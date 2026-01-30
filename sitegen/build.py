@@ -7,8 +7,9 @@ from charset_normalizer import from_path
 from marko import Markdown, MarkoExtension
 from marko.block import Document, Heading
 from jinja2 import Environment, Template
-from typing import Iterable, Final, Any
+from typing import Iterable, Final, Any, TypeAlias, Union
 from markupsafe import Markup
+from abc import ABC, abstractmethod
 from .exec import FileTypeError
 from .context import BuildContext, TemplateContext, FileType, Metrics
 from .templates import PAGE_FALLBACK
@@ -22,55 +23,27 @@ DEFAULT_EXTENSIONS: Final[frozenset[str]] = frozenset(
     {'footnote', 'toc', 'codehilite', 'gfm'}
 )
 
+PageTitle: TypeAlias = Markup
+PageBody: TypeAlias = Union[Document, str]
 
-class Page(Markdown):
-    """
-    This class represents a single renderable page within the site.
-    It extends :class:`marko.Markdown`.
 
-    A ``Page`` instance typically corresponds to a single source document
-    on disk and is rendered using a Jinja2 template.
-
-    :ivar title: Parsed top-level heading used as the page title.
-    :ivar body: Parsed Markdown document body.
-    :ivar context: Path to the source document.
-    :ivar metadata: Page metadata defined at the top of each file.
-    :ivar jinja_env: Jinja2 environment used for template rendering.
-    """
-
-    title: Heading
-    body: Document
+class Page(ABC):
+    title: PageTitle
+    body: PageBody
     template: Template
     context: BuildContext
+    type: FileType
     metadata: dict[str, Any]
     jinja_env: Environment
 
-    def __init__(
-            self,
-            context: BuildContext,
-            extensions: Iterable[str | MarkoExtension] | None = None,
-    ):
-        """
-        Initialize a page from a Markdown document.
+    def __init__(self) -> None:
+        pass
 
-        **Note:** In most cases, you would not need to access this class directly,
-        instead use `sitegen.build()` which handles most of what this class
-        does in a single call.
+    @abstractmethod
+    def parse(self) -> None:
+        pass
 
-        This class sets up the Markdown parser with the requested extensions and
-        associates the page with its source file and rendering environment.
-        The document contents are not rendered until explicitly requested.
-
-        :param context: Path to the source Markdown file.
-        :param extensions: Optional iterable of Marko extension names or
-            extension instances to enable for Markdown parsing.
-
-        *See Also:* ``sitegen.build()``
-        """
-        super().__init__(extensions=extensions)
-        self.context = context
-
-    def r_open(self) -> TextIOWrapper:
+    def read(self) -> str:
         """
         Prepare source file for reading.
         :return: File object as the built-in `open()` function does.
@@ -78,18 +51,18 @@ class Page(Markdown):
         :raise IOError: If source file cannot be opened for any reason.
         """
         path = self.context.source_path
-        if not (path.suffix.lower() in FileType.MARKDOWN.value):
+        if not (path.suffix.lower() in self.type.value):
             raise FileTypeError("File not a markdown file.", path.suffix)
 
-        try:
-            charset = from_path(path).best()
-            encoding = (charset.encoding if charset else "utf-8")
-            return path.open("r", errors="ignore", encoding=encoding)
+        charset = from_path(path).best()
+        encoding = (charset.encoding if charset else "utf-8")
 
+        try:
+            return path.read_text(errors="ignore", encoding=encoding)
         except OSError as e:
             raise IOError(*e.args) from e
 
-    def w_open(self) -> TextIOWrapper:
+    def write(self, page_body: str) -> int:
         """
         Prepare destination file for writing.
         :return: File object as the built-in `open()` function does.
@@ -99,138 +72,129 @@ class Page(Markdown):
 
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
-            return path.open("w", errors="ignore", encoding="utf-8")
+            return path.write_text(page_body, errors="ignore", encoding="utf-8")
 
         except OSError as e:
             raise IOError(*e.args) from e
 
-    def read(self) -> tuple[str, str]:
-        """
-        Return the contents of the file as strings.
-        :raise FileTypeError: Tried to open a non markdown file.
-        :raise IOError: If source file cannot be opened for any reason.
-        :return: A tuple containing the yml header and the body.
-        """
-        body: str
-        with self.r_open() as f:
-            body = f.read()
+class MarkdownPage(Page, Markdown):
+    def __init__(self, context: BuildContext):
+        super(Page).__init__()
+        self.__marko = Markdown(extensions=DEFAULT_EXTENSIONS)
+        self.context = context
+        self.type = FileType.MARKDOWN
 
-        self.metadata = dict() # TODO: Parse yml at start of file.
-        return "", body
-
-    def set_template(self, *templates: str | Template) -> None:
-        self.template = self.context.jinja_env.get_or_select_template(
-            [*templates, PAGE_FALLBACK]
-        )
-
-    def set_title(self) -> Heading:
-        # Set a default before attempting to get actual title
-        title = Heading(
-            re.match(Heading.pattern, "# Heading")
-        )
-
-        for e in self.body.children:
-            if isinstance(e, Heading) and e.level == 1:
-                self.body.children.remove(e) #type: ignore
-                return e
-        return title
-
-    def parse(self, default: str | None = "") -> None:
+    def parse(self) -> None:
         """
         Parse the body of this page.
         If the body of the source file is empty, will fallback to default content.
         :return: None
         """
-        yml, body = self.read()
-        self.body = super().parse(body)
+
+        self.body = self.__marko.parse(
+            self.read()
+        )
 
         if len(self.body.children) == 0:
             default_heading = self.context.dest_path.stem
-            default_body = PAGE_DEFAULT.format(heading=default_heading, body=default)
-            self.body = super().parse(default_body)
-            logger.warning(
-                "%s has empty body and should probably be set to draft.",
-                self.context.source_path.name
-            )
+            default_body = PAGE_DEFAULT.format(heading=default_heading, body=PAGE_DEFAULT_BODY)
+            self.body = self.__marko.parse(default_body)
 
-        self.title = self.set_title()
+        self.__extract_title()
 
-    def get_template_context(self) -> TemplateContext:
-        t_c = TemplateContext()
-        with Metrics() as metrics:
-            t_c.modified = self.context.source_path_lastmod
-            t_c.yml = self.metadata
-            t_c.url = self.context.url_path
-            t_c.now = datetime.now(timezone.utc)
+    def __extract_title(self) -> None:
+        # Set a default before attempting to get actual title
+        title = Heading(
+            re.match(Heading.pattern, "# Untitled")
+        )
 
-            t_c.html = Markup(
-                super().render(self.body)
-            )
+        for e in self.body.children:
+            if isinstance(e, Heading) and e.level == 1:
+                self.body.children.remove(e)  # type: ignore
+                self.title = Markup(
+                    self.__marko.renderer.render_children(e)
+                )
 
-            t_c.table_of_contents = Markup(
-                self.renderer.render_toc()
-            )
+        self.title = Markup(
+            self.__marko.renderer.render_children(title)
+        )
 
-            t_c.title = Markup(
-                self.renderer.render_children(self.title)
-            )
-
-        t_c.metrics = metrics
-        return t_c
-
-    def render(self, *templates: str | Template, **jinja_context) -> None:
-        """
-        Render this page object to HTML and write it to disk.
-
-        Uses the template `page.html` located in `_fragments` else,
-        will fallback to use `DEFAULT_PAGE_TEMPLATE`. Renders the page
-        using the current object as context.
-
-        :param templates:
-        :param jinja_context: Additional context when rendering.
-        :return: None
-        """
-        self.set_template(*templates, "page.html")
-        template_context = self.get_template_context()
-
-        template_context.metrics["template"] = self.template.name
-        with self.w_open() as f:
-            html = self.template.render(
-                page=template_context, **jinja_context
-            )
-
-            if not self.context.validate_only:
-                f.write(html)
-
-def build(
-        build_context: BuildContext,
-        extensions: Iterable[str | MarkoExtension] | None = None,
-        **jinja_context: Any
-) -> None:
-    """
-    Build a page from a Markdown document.
-
-    If no extensions are provided, the default extension list will be used.
-
-    :param build_context: BuildContext instance.
-    :param extensions: Optional iterable of Marko extension names or
-            extension instances to enable for Markdown parsing.
-    :param jinja_context: Additional context when rendering.
-    :return: None
-    """
-    if not extensions:
-        extensions = DEFAULT_EXTENSIONS
-
-    if build_context.type != FileType.MARKDOWN:
-        print(build_context.type)
-        logger.warning("%s is not a Markdown or HTML file.", build_context.source_path.name)
-        return
-
-    page = Page(build_context, extensions)
-    page.parse(PAGE_DEFAULT_BODY)
-
-    if page.metadata.get("is_draft", False):
-        logger.info("Page %s is draft. Skipping...", build_context.source_path)
-        return
-
-    page.render(**jinja_context)
+#    def get_template_context(self) -> TemplateContext:
+#        t_c = TemplateContext()
+#        with Metrics() as metrics:
+#            t_c.modified = self.context.source_path_lastmod
+#            t_c.yml = self.metadata
+#            t_c.url = self.context.url_path
+#            t_c.now = datetime.now(timezone.utc)
+#
+#            t_c.html = Markup(
+#                super().render(self.body)
+#            )
+#
+#            t_c.table_of_contents = Markup(
+#                self.renderer.render_toc()
+#            )
+#
+#            t_c.title = Markup(
+#                self.renderer.render_children(self.title)
+#            )
+#
+#        t_c.metrics = metrics
+#        return t_c
+#
+#    def render(self, *templates: str | Template, **jinja_context) -> None:
+#        """
+#        Render this page object to HTML and write it to disk.
+#
+#        Uses the template `page.html` located in `_fragments` else,
+#        will fallback to use `DEFAULT_PAGE_TEMPLATE`. Renders the page
+#        using the current object as context.
+#
+#        :param templates:
+#        :param jinja_context: Additional context when rendering.
+#        :return: None
+#        """
+#        self.set_template(*templates, "page.html")
+#        template_context = self.get_template_context()
+#
+#        template_context.metrics["template"] = self.template.name
+#        with self.w_open() as f:
+#            html = self.template.render(
+#                page=template_context, **jinja_context
+#            )
+#
+#            if not self.context.validate_only:
+#                f.write(html)
+#
+#def build(
+#        build_context: BuildContext,
+#        extensions: Iterable[str | MarkoExtension] | None = None,
+#        **jinja_context: Any
+#) -> None:
+#    """
+#    Build a page from a Markdown document.
+#
+#    If no extensions are provided, the default extension list will be used.
+#
+#    :param build_context: BuildContext instance.
+#    :param extensions: Optional iterable of Marko extension names or
+#            extension instances to enable for Markdown parsing.
+#    :param jinja_context: Additional context when rendering.
+#    :return: None
+#    """
+#    if not extensions:
+#        extensions = DEFAULT_EXTENSIONS
+#
+#    if build_context.type != FileType.MARKDOWN:
+#        print(build_context.type)
+#        logger.warning("%s is not a Markdown or HTML file.", build_context.source_path.name)
+#        return
+#
+#    page = Page(build_context, extensions)
+#    page.parse(PAGE_DEFAULT_BODY)
+#
+#    if page.metadata.get("is_draft", False):
+#        logger.info("Page %s is draft. Skipping...", build_context.source_path)
+#        return
+#
+#    page.render(**jinja_context)
