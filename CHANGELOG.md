@@ -1,10 +1,21 @@
 # Changelog
 
-## v0.1.2
-### Added
-- Add packaging configurations. Can now be run with `sitegen`.
+## 0.3.0
+- Complete rewrite of build classes
 
-## v0.1.3
+## Fixes
+- When creating rss and sitemap, it no longer needs to rerender all pages again.
+
+## 0.2.0
+### Added
+- RSS Feed.
+- Sitemap.
+
+### Fixes
+- Fixed compatibility with Python > 1.12 - https://github.com/itsdanjc/itsdanjc.com/issues/12.
+- Templates not loaded from correct location.
+
+## 0.1.3
 ### Added
 - Added context variable for the current page URL.
 - Added fallback template for a page.
@@ -14,11 +25,6 @@
 ### Fixes
 - Fixed issue where blank page default was not populated.
 
-## v0.2.0
+## 0.1.2
 ### Added
-- RSS Feed.
-- Sitemap.
-
-### Fixes
-- Fixed compatibility with Python > 1.12 - https://github.com/itsdanjc/itsdanjc.com/issues/12.
-- Templates not loaded from correct location.
+- Add packaging configurations. Can now be run with `sitegen`.
