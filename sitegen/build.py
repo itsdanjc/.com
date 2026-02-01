@@ -1,6 +1,5 @@
 from __future__ import annotations
 import logging
-import re
 from datetime import datetime, timezone
 from charset_normalizer import from_path
 from marko import Markdown
@@ -93,9 +92,10 @@ class Page(ABC):
 
 class MarkdownPage(Page):
     type = FileType.MARKDOWN
+
     def __init__(self, context: BuildContext, jinja_env: Environment) -> None:
         super().__init__(context, jinja_env)
-        self.__marko = Markdown(extensions=DEFAULT_EXTENSIONS)
+        self.__marko = None     # To allow for pickling, we properly define this in parse()
 
     def parse(self) -> None:
         """
@@ -103,7 +103,7 @@ class MarkdownPage(Page):
         If the body of the source file is empty, will fallback to default content.
         :return: None
         """
-
+        self.__marko = Markdown(extensions=DEFAULT_EXTENSIONS)
         default_heading = self.build_context.dest_path.stem
         self.body = self.__marko.parse(
             self.read()

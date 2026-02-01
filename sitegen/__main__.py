@@ -1,6 +1,7 @@
 import argparse
 import logging
 import sys
+from datetime import timedelta
 from pathlib import Path
 from typing import Optional, Final
 from jinja2 import TemplateError
@@ -74,9 +75,15 @@ def build(
     site = SiteRoot(directory.resolve())
     logger.info("Building site at %s", site.root)
 
+    index_cache_duration = (
+        timedelta(seconds=0) if perform_clean or dry_run
+        else timedelta(minutes=2.5)
+    )
+
     with BuildStats() as build_stats:
-        builder = TreeBuilder(site)
+        builder = TreeBuilder(site, index_cache_duration)
         logger.info("Indexed site in %.2fs.", builder.metrics["total_time"])
+        del builder
 
         if perform_clean:
             logger.info("Performing cleanup.")
