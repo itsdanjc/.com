@@ -1,9 +1,10 @@
 import argparse
 import logging
 import sys
+from collections.abc import Callable
 from datetime import timedelta
 from pathlib import Path
-from typing import Optional, Final
+from typing import Optional, Final, Any, Tuple
 from jinja2 import TemplateError
 from .log import configure_logging
 from .site import SiteRoot, TreeBuilder
@@ -17,6 +18,47 @@ CLI_DESC: Final[str] = "Epilogue"
 logger = logging.getLogger(__name__)
 cwd = Path.cwd()
 
+def add_commands(ap) -> None:
+    # Build command
+    build_cmd = ap.add_parser("build", help="Build the site.")
+    build_cmd.add_argument(
+        "-f",
+        "--force",
+        action="store_true",
+        help="force rebuild of all pages"
+    )
+    build_cmd.add_argument(
+        "-c",
+        "--clean",
+        action="store_true",
+        help="clear the build directory, then build"
+    )
+    build_cmd.add_argument(
+        "-d",
+        "--dry-run",
+        action="store_true",
+        help="run as normal. but don't create build files"
+    )
+    build_cmd.add_argument(
+        "--no-rss",
+        action="store_true",
+        help="do not update rss feed."
+    )
+    build_cmd.add_argument(
+        "--no-sitemap",
+        action="store_true",
+        help="do not update sitemap feed."
+    )
+    build_cmd.add_argument(
+        "-r",
+        "--site-root",
+        type=Path,
+        default=cwd,
+        metavar="PATH",
+        help="location of webroot, if not at the current working directory"
+    )
+
+
 def main(argv: Optional[list[str]] = None) -> None:
     parser = argparse.ArgumentParser(prog=CLI_NAME, description=CLI_DESC)
     commands = parser.add_subparsers(title="commands", dest="commands", required=True)
@@ -25,54 +67,32 @@ def main(argv: Optional[list[str]] = None) -> None:
     parser.add_argument("-v", "--verbose", action="store_true", help="Show more info in logs")
     parser.add_argument("--version", action="version", version=__version__)
 
-    # Build command
-    build_cmd = commands.add_parser("build", help="Build the site.")
-    build_cmd.add_argument(
-        "-f","--force", action="store_true",
-        help="force rebuild of all pages")
-    build_cmd.add_argument(
-        "-c","--clean", action="store_true",
-        help="clear the build directory, then build")
-    build_cmd.add_argument(
-        "-d","--dry-run", action="store_true",
-        help="run as normal. but don't create build files")
-    build_cmd.add_argument(
-        "--no-rss", action="store_true",
-        help="do not update rss feed.")
-    build_cmd.add_argument(
-        "--no-sitemap", action="store_true",
-        help="do not update sitemap feed.")
-    build_cmd.add_argument(
-        "-r", "--site-root", type=Path, default=cwd, metavar="PATH",
-        help="location of webroot, if not at the current working directory")
-
+    add_commands(commands)
     args = parser.parse_args(argv)
+
     print(CLI_HEADER_MSG, end="\n\n")
     configure_logging(args.verbose)
-    result: int = 0
-    try:
-        if args.commands == "build":
-            result = build(
-                args.force,
-                args.site_root,
-                args.clean,
-                args.dry_run,
-                args.no_rss,
-                args.no_sitemap
+
+    func_args = tuple()
+    func: Callable[..., int] = lambda: 0
+
+    match args.commands:
+        case "build":
+            func = build
+            func_args = (
+                args.force, args.site_root, args.clean,
+                args.dry_run, args.no_rss, args.no_sitemap
             )
+
+    try:
+        sys.exit( func(*func_args) )
     except KeyboardInterrupt:
         sys.exit(0)
 
-    sys.exit(result)
-
 
 def build(
-        force: bool,
-        directory: Path,
-        perform_clean: bool,
-        dry_run: bool,
-        no_rss: bool,
-        no_sitemap: bool
+        force: bool, directory: Path, perform_clean: bool,
+        dry_run: bool, no_rss: bool, no_sitemap: bool
 ) -> int:
     site = SiteRoot(directory.resolve())
 

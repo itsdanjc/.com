@@ -1,100 +1,27 @@
 # itsdanjc.com
 
-## API Reference
-### Example Usage
+## Usage
 
-```python
-import os
-import pathlib
-from sitegen import SiteRoot, build
+### Building site
+```text
+$ sitegen build
 
-cwd = pathlib.Path(os.getcwd())
-
-site = SiteRoot(cwd)
-site.make_tree()
-
-for context in site.tree:
-    build(context) #Build each page
+options:
+  -h, --help            show this help message and exit
+  -f, --force           force rebuild of all pages
+  -c, --clean           clear the build directory, then build
+  -d, --dry-run         run as normal. but don't create build files
+  -r, --site-root PATH  location of webroot, if not at the current working directory
+  --no-rss              do not update or create rss feed
+  --no-sitemap          do not update or create sitemap  
 ```
----
-### `sitegen.SiteRoot` class
 
----
-### `sitegen.Page` class
+### Show site structure
+```text
+$ sitegen tree
 
-This class represents a single renderable page within the site.
-It extends class [`marko.Markdown`](https://marko-py.readthedocs.io/en/latest/api.html#marko.Markdown).
-
->[!NOTE]
-> In most cases, you would not need to access this class directly,
-> instead use `sitegen.build()` which handles most of what this 
-> class does in a single call.
-> 
-> The class is provided in the API if you need to extend
-> functionality of the class, or the build function.
-
-A `Page` instance typically corresponds to a single source document
-on disk and is rendered using a Jinja2 template.
-
-**Attributes**
-- `title: Heading` Parsed top-level heading used as the page title.
-- `body: Document` Parsed Markdown document body.
-- `document_path: Path` Path to the source document.
-- `metadata: dict` Page metadata defined at the top of each file.
-- `last_modified: datetime` Timestamp of the last modification of the source file.
-- `jinja_env: Enviroment` Jinja2 environment used for template rendering.
-
-**Parameters**
-- `path: Path` Path to the source Markdown file. 
-- `jinja_env: Enviroment` Jinja2 environment used for rendering templates. 
-- `extensions: Iterable`: Optional iterable of Marko extension names or extension instances to enable for Markdown parsing.
-
-### `sitegen.Page.read_parse()`
-
-Read and parse the file represented by this object from disk.
-
-Uses source path `self.document_path`.
-
-If the body of the source file is empty, will fallback to default content.
-
-**Returns**
-None.
-
-### `sitegen.Page.render_write()`
-Render this page object to HTML and write it to disk.
-
-Uses the template `page.html` located in `_fragments` else,
-will fallback to use `DEFAULT_PAGE_TEMPLATE`. Renders the page
-using the current object as context.
-
-**Parameters**
-- `dest: Path` Destination file path.
-- `*jinja_context` Additional context when rendering.
-
-**Returns**
-None.
-
----
-### `sitegen.BuildContext` class
-Initialize a build context from relative paths.
-
-**Attributes**
-- `curr_working_dir: Path` Current working directory used as the base for all paths.
-- `source_path: Path` Path to the source content directory relative to webroot.
-- `dest_path: Path` Path to the output destination directory relative to webroot.
-- `template_path: Path` Path to the template directory relative to webroot.
-
----
-### `sitegen.build()`
-Build a page from a Markdown document.
-
-If no extensions are provided, the default extension list will be used.
-
-**Parameters**
-- `build_context: BuildContext` BuildContext instance.
-- `extensions: Iterable` Optional iterable of Marko extension names or
-            extension instances to enable for Markdown parsing.
-- `**jinja_context` Additional context when rendering.
-
-**Returns**
-None.
+options:
+  -h, --help            show this help message and exit
+  -i, --reindex         ignore cache and reindex
+  -r, --site-root PATH  location of webroot, if not at the current working directory
+```
