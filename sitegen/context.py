@@ -92,6 +92,7 @@ class BuildContext:
         self.source_path = site.source_dir.joinpath(source)
         self.dest_path = site.dest_dir.joinpath(dest)
         self.template_path = site.template_dir
+        self.cache_dir = site.cache_dir
         self.type = FileType.from_suffix(self.source_path.suffix)
         self.jinja_env = env
         self.validate_only = False

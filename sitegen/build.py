@@ -1,5 +1,7 @@
 from __future__ import annotations
 import logging
+import os
+import tempfile
 from datetime import datetime, timezone
 from charset_normalizer import from_path
 from marko import Markdown
@@ -43,6 +45,7 @@ class Page(ABC):
     def parse(self) -> None:
         pass
 
+    @abstractmethod
     def render(self) -> TemplateContext:
         pass
 
@@ -65,15 +68,14 @@ class Page(ABC):
         except OSError as e:
             raise IOError(*e.args) from e
 
-    def write(self) -> int:
+    def write(self) -> None:
         """
         Prepare destination file for writing.
-        :return: File object as the built-in `open()` function does.
         :raise IOError: If source file cannot be opened for any reason.
         """
         path = self.build_context.dest_path
         if self.build_context.validate_only:
-            return 0
+            return
 
         if not hasattr(self, "template_context"):
             raise RuntimeError("No template_context defined. Have you called `render()`?")
@@ -83,8 +85,18 @@ class Page(ABC):
                 page=self.template_context,
             )
 
+            with tempfile.NamedTemporaryFile(
+                    "w",
+                    delete=False,
+                    dir=self.build_context.cache_dir,
+                    errors="ignore",
+                    encoding="utf-8"
+            ) as out:
+                out.write(content)
+                temp = out.name
+
             path.parent.mkdir(parents=True, exist_ok=True)
-            return path.write_text(content, errors="ignore", encoding="utf-8")
+            os.replace(temp, path)
 
         except OSError as e:
             raise IOError(*e.args) from e

@@ -256,12 +256,16 @@ class TreeBuilder:
         hash_str = hashlib.sha256(dump).hexdigest()
 
         # Write dump to temp location
-        with tempfile.NamedTemporaryFile("wb", delete=False, dir=cache_dir) as fout:
+        with tempfile.NamedTemporaryFile(
+                "wb", delete=False, dir=cache_dir
+        ) as fout:
             fout.write( gzip.compress(dump) )
             temp_pickle = fout.name
 
         # Write hash to temp location
-        with tempfile.NamedTemporaryFile("w", delete=False, dir=cache_dir) as fout:
+        with tempfile.NamedTemporaryFile(
+                "w", delete=False, dir=cache_dir
+        ) as fout:
             fout.write(hash_str)
             temp_hash = fout.name
 
@@ -316,6 +320,7 @@ class SiteRoot:
     source_dir: Final[Path]
     dest_dir: Final[Path]
     template_dir: Final[Path]
+    cache_dir: Final[Path]
     env: Final[Environment]
     url_base: Final[str] = URL_BASE
     url_index: Final[str] = URL_INDEX
@@ -325,6 +330,7 @@ class SiteRoot:
         self.source_dir = path.joinpath(SOURCE_DIR)
         self.dest_dir = path.joinpath(DEST_DIR)
         self.template_dir = path.joinpath(TEMPLATE_DIR)
+        self.cache_dir = path.joinpath(OBJ_CACHE_DIR)
         self.tree = TreeNode(self.source_dir)
         self.env = Environment(
             autoescape=True,
@@ -362,7 +368,13 @@ class SiteRoot:
         )
 
         rss_feed = self.render_index(rss_template)
-        out.write_text(rss_feed)
+        with tempfile.NamedTemporaryFile(
+                "w", delete=False, dir=self.cache_dir
+        ) as f:
+            f.write(rss_feed)
+            temp = f.name
+
+        os.replace(temp, out)
 
     def make_sitemap(self, out: Path) -> None:
         sitemap_template = self.env.get_or_select_template(
@@ -370,4 +382,10 @@ class SiteRoot:
         )
 
         sitemap = self.render_index(sitemap_template)
-        out.write_text(sitemap)
+        with tempfile.NamedTemporaryFile(
+                "w", delete=False, dir=self.cache_dir
+        ) as f:
+            f.write(sitemap)
+            temp = f.name
+
+        os.replace(temp, out)
